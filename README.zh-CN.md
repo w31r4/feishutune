@@ -1,16 +1,21 @@
 # feishutune
 
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Go](https://img.shields.io/badge/Go-1.26+-00ADD8?logo=go&logoColor=white)](go.mod)
+[![Platform: macOS](https://img.shields.io/badge/platform-macOS-lightgrey?logo=apple&logoColor=white)](#环境要求)
+
 [English](README.md) | 简体中文
 
 让你的飞书个性签名实时同步**本地音乐应用**正在播放的歌曲 —— 自动识别 **Spotify**
 或 **QQ 音乐**，仅支持 macOS。
 
-```
-♫ Nocturne · Chopin ♡ ▱▱▰▰▰▰▱▱▱▱
+```text
+♫ Clair de Lune ♡ · Debussy  2:11 ━━━━●───── 5:08
 ```
 
-当有歌曲在播放且你正在使用 Mac 时，签名会显示为正在播放的歌曲；否则回退到一个状态
-文案：`online`（在 Mac 前）、`away`（离开 Mac）或 `weekend`（周末空闲）。
+当有歌曲在播放且你正在使用 Mac 时，签名会显示为这一行正在播放的内容：歌曲、若已喜欢
+则带一个 ♡，以及两端标注已播放时长与总时长的实时进度条。否则回退到一个单词状态文案 ——
+`online`（在 Mac 前）、`away`（离开超过空闲阈值）或 `weekend`（周末空闲）。
 
 ## 工作原理
 
@@ -25,7 +30,8 @@
   Spotify，再尝试 QQ 音乐 —— 哪个真正在播放就用哪个。
 - **空闲检测** 使用 `ioreg`（`HIDIdleTime`）判断你是否在键盘前，从而在你离开时切换到
   离开状态。
-- **飞书** 通过带 Cookie 鉴权的 `PUT` 请求更新到网页端接口。
+- **飞书** 通过带 Cookie 鉴权的 `PUT` 请求更新到网页客户端所用的同一个接口 —— 这是非官方
+  接口，飞书端的改动可能会让它失效。
 - 喜欢歌曲上的 **♡** 是可选的。Spotify 通过你的 `sp_dc` Cookie 调用 Spotify 内部网页
   GraphQL 读取；QQ 音乐则直接读取应用本地的收藏列表（无需登录脚本），按歌名 + 歌手
   匹配。两者都没有时，工具照常运行，只是不显示爱心。
@@ -48,7 +54,8 @@
 go install github.com/Durden-T/feishutune/cmd/feishutune@latest
 ```
 
-会安装到 `$GOBIN`（通常是 `~/go/bin`），请确保它在你的 `PATH` 中。
+会安装到 `$GOBIN`（通常是 `~/go/bin`），请确保它在你的 `PATH` 中。之后如需更新，重新运行
+同样的命令即可 —— 已设置的定时任务会在下一次执行时自动运行新的二进制文件，无需重新加载。
 
 ## 配置
 
@@ -154,9 +161,13 @@ feishutune uninstall
 - `config.json` —— 可选的配置覆盖
 - `state.json` —— 上次写入的签名和暂停标志
 - `spotify-cache.json` —— 缓存的 Spotify 令牌和各歌曲的喜欢状态
+- `agent.log` —— 定时 launchd 运行的 stdout 和 stderr（便于排查问题）
 
 （QQ 音乐在此处无需任何文件 —— 它的正在播放来自 `media-control`，♡ 直接读取 QQ 音乐
 应用自己的库。）
+
+Cookie 以明文形式保存（不在 macOS 钥匙串中），但文件仅属主可访问 —— 目录为 `0700`，
+每个文件为 `0600`。
 
 ## 退出码
 
@@ -166,6 +177,20 @@ feishutune uninstall
 | `1`    | 其他错误                                   |
 | `2`    | 用法错误                                   |
 | `3`    | 飞书 session 已过期或无效 —— 需重新 `login` |
+
+## 排查问题
+
+- **签名没有更新。** 看 `feishutune status`（上次签名、是否暂停）和 `feishutune preview`
+  （此刻会写入什么）。定时任务会把每次运行追加到 `~/.feishutune/agent.log` —— 从中查找报错 ——
+  用 `launchctl list | grep feishutune` 确认任务已加载。
+- **退出码 3 /「session 过期」。** 飞书 Cookie 已失效（有效期约 350 天）。重新运行
+  `pbpaste | feishutune login`。
+- **Spotify 歌曲没有 ♡。** `sp_dc` Cookie 缺失或过期（约 1 年）；日志会提示何时需要重新授权。
+  获取新的 Cookie 后运行 `pbpaste | feishutune spotify-login`。
+- **QQ 音乐歌曲没有 ♡。** 保持登录 QQ 音乐应用，让「我喜欢」同步到本地库。匹配按歌名 + 歌手进行，
+  因此同一首歌的其他版本可能会漏掉。
+- **未检测到 QQ 音乐。** 安装 `media-control`（`brew install media-control`）；任务会在
+  `/opt/homebrew/bin`（Apple 芯片）和 `/usr/local/bin`（Intel）中查找它。
 
 ## 开发
 

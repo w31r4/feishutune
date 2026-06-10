@@ -1,17 +1,23 @@
 # feishutune
 
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Go](https://img.shields.io/badge/Go-1.26+-00ADD8?logo=go&logoColor=white)](go.mod)
+[![Platform: macOS](https://img.shields.io/badge/platform-macOS-lightgrey?logo=apple&logoColor=white)](#requirements)
+
 English | [简体中文](README.zh-CN.md)
 
 Keep your Feishu personal signature in sync with whatever is playing in your
 **local music app** — **Spotify** or **QQ Music (QQ音乐)**, auto-detected — on macOS.
 
-```
-♫ Nocturne · Chopin ♡ ▱▱▰▰▰▰▱▱▱▱
+```text
+♫ Clair de Lune ♡ · Debussy  2:11 ━━━━●───── 5:08
 ```
 
-When a track is playing and you're at your Mac, your signature becomes the
-now-playing line. Otherwise it falls back to a status: `online` (at the Mac),
-`away` (away from the Mac), or `weekend` (idle on a weekend).
+When a track is playing and you're at your Mac, your signature becomes that
+now-playing line: the song, a ♡ if it's one of your liked tracks, and a live
+progress scrubber flanked by the elapsed and total time. Otherwise it falls
+back to a one-word status — `online` (at the Mac), `away` (stepped away past
+the idle threshold), or `weekend` (idle on a weekend).
 
 ## How it works
 
@@ -27,7 +33,9 @@ the change-detection means almost all of those ticks are cheap no-ops.
   CLI. Spotify is tried first, then QQ Music — whichever is actually playing wins.
 - **Idle detection** uses `ioreg` (`HIDIdleTime`) to tell whether you're at the
   keyboard, so it can switch to the away status when you step away.
-- **Feishu** is updated with a cookie-authenticated `PUT` to the web endpoint.
+- **Feishu** is updated with a cookie-authenticated `PUT` to the same web
+  endpoint the browser client uses — an unofficial API, so a Feishu-side change
+  could break it.
 - The **♡** on liked tracks is optional. For Spotify it's read from Spotify's
   internal web GraphQL using your `sp_dc` cookie; for QQ Music it's read from the
   app's local favorites library (no login needed), matched by song name + artist.
@@ -55,6 +63,8 @@ go install github.com/Durden-T/feishutune/cmd/feishutune@latest
 ```
 
 This installs to `$GOBIN` (usually `~/go/bin`); make sure that's on your `PATH`.
+To update later, re-run the same command — a scheduled agent runs the new binary
+on its next tick, no reload needed.
 
 ## Setup
 
@@ -164,9 +174,13 @@ Everything lives under `~/.feishutune/`:
 - `config.json` — optional config overrides
 - `state.json` — last signature written and the paused flag
 - `spotify-cache.json` — cached Spotify tokens and per-track liked results
+- `agent.log` — stdout and stderr from the scheduled launchd runs (for debugging)
 
 (QQ Music needs no files here — its now-playing comes from `media-control` and
 its ♡ is read directly from the QQ Music app's own library.)
+
+Your cookies are stored as plaintext (not in the macOS Keychain), but the files
+are owner-only — the directory is `0700` and each file is `0600`.
 
 ## Exit codes
 
@@ -176,6 +190,21 @@ its ♡ is read directly from the QQ Music app's own library.)
 | `1`  | Other error                                   |
 | `2`  | Usage error                                   |
 | `3`  | Feishu session expired or invalid — re-`login`|
+
+## Troubleshooting
+
+- **Nothing's updating.** Check `feishutune status` (last signature, paused?) and
+  `feishutune preview` (what it would write right now). The scheduled agent appends
+  every run to `~/.feishutune/agent.log` — read it for errors — and `launchctl list
+  | grep feishutune` confirms it's loaded.
+- **Exit code 3 / "session expired".** The Feishu cookie lapsed (~350 days). Re-run
+  `pbpaste | feishutune login`.
+- **No ♡ on Spotify tracks.** The `sp_dc` cookie is missing or expired (~1 year); the
+  log notes when to re-auth. Grab a fresh one and `pbpaste | feishutune spotify-login`.
+- **No ♡ on QQ Music tracks.** Stay logged into the QQ Music app so 我喜欢 syncs to the
+  local library. Matching is by song name + artist, so an alternate version can be missed.
+- **QQ Music isn't detected.** Install `media-control` (`brew install media-control`); the
+  agent looks on `/opt/homebrew/bin` (Apple silicon) and `/usr/local/bin` (Intel).
 
 ## Development
 
