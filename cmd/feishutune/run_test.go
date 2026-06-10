@@ -44,11 +44,15 @@ type fakeLiker struct {
 	err   error
 }
 
-func (f fakeLiker) Liked(context.Context, string) (bool, error) { return f.liked, f.err }
+func (f fakeLiker) Liked(context.Context, bio.Track) (bool, error) { return f.liked, f.err }
 
 // noLiked is the disabled liker used by tests that don't exercise the ♡: it
 // reports every track as not liked, like an unconfigured Spotify cookie.
 var noLiked = fakeLiker{}
+
+// srcs wraps a single player+liker as the source list update and previewLine
+// take. Most tests exercise one player, so this keeps their calls readable.
+func srcs(p Player, l Liker) []source { return []source{{p, l}} }
 
 // atMac and away are idle readings either side of the default 10m threshold; the
 // zero fakeIdle reports no idle time at all (firmly at the Mac).
@@ -80,7 +84,7 @@ func TestUpdatePublishesTrack(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	pub := &fakePublisher{}
 
-	res, err := update(context.Background(), bio.Default(), fakePlayer{track: playingTrack()}, atMac, pub, noLiked, dayAt(time.Monday, 14), io.Discard)
+	res, err := update(context.Background(), bio.Default(), srcs(fakePlayer{track: playingTrack()}, noLiked), atMac, pub, dayAt(time.Monday, 14), io.Discard)
 	if err != nil {
 		t.Fatalf("update: %v", err)
 	}
@@ -101,7 +105,7 @@ func TestUpdateShowsHeartWhenLiked(t *testing.T) {
 	t.Run("liked track shows the heart", func(t *testing.T) {
 		t.Setenv("HOME", t.TempDir())
 		pub := &fakePublisher{}
-		res, err := update(context.Background(), bio.Default(), fakePlayer{track: playingTrack()}, atMac, pub, fakeLiker{liked: true}, dayAt(time.Monday, 14), io.Discard)
+		res, err := update(context.Background(), bio.Default(), srcs(fakePlayer{track: playingTrack()}, fakeLiker{liked: true}), atMac, pub, dayAt(time.Monday, 14), io.Discard)
 		if err != nil {
 			t.Fatalf("update: %v", err)
 		}
@@ -113,7 +117,7 @@ func TestUpdateShowsHeartWhenLiked(t *testing.T) {
 		t.Setenv("HOME", t.TempDir())
 		var warn strings.Builder
 		pub := &fakePublisher{}
-		res, err := update(context.Background(), bio.Default(), fakePlayer{track: playingTrack()}, atMac, pub, fakeLiker{err: errors.New("token boom")}, dayAt(time.Monday, 14), &warn)
+		res, err := update(context.Background(), bio.Default(), srcs(fakePlayer{track: playingTrack()}, fakeLiker{err: errors.New("token boom")}), atMac, pub, dayAt(time.Monday, 14), &warn)
 		if err != nil {
 			t.Fatalf("a liked-lookup error must not fail the update: %v", err)
 		}
@@ -126,13 +130,63 @@ func TestUpdateShowsHeartWhenLiked(t *testing.T) {
 	})
 }
 
+// TestNowPlayingTrackPicksFirstPlaying covers the multi-source fall-through:
+// sources are tried in order, the first actually-playing one wins with its own
+// liker, a non-playing source is skipped, and a player error skips that source
+// rather than aborting the chain.
+func TestNowPlayingTrackPicksFirstPlaying(t *testing.T) {
+	spotify := bio.Track{Playing: true, Name: "S-Song", Artist: "S-Art"}
+	qq := bio.Track{Playing: true, Name: "Q-Song", Artist: "Q-Art"}
+
+	tests := []struct {
+		name      string
+		sources   []source
+		wantName  string // "" means nothing playing -> zero Track
+		wantLiked bool
+	}{
+		{
+			name:      "first source playing wins, uses its own liker",
+			sources:   []source{{fakePlayer{track: spotify}, fakeLiker{liked: true}}, {fakePlayer{track: qq}, noLiked}},
+			wantName:  "S-Song",
+			wantLiked: true,
+		},
+		{
+			name:      "first not playing falls through to second, with second's liker",
+			sources:   []source{{fakePlayer{}, fakeLiker{liked: true}}, {fakePlayer{track: qq}, fakeLiker{liked: true}}},
+			wantName:  "Q-Song",
+			wantLiked: true,
+		},
+		{
+			name:     "first source errors, falls through to second",
+			sources:  []source{{fakePlayer{err: errors.New("media-control boom")}, noLiked}, {fakePlayer{track: qq}, noLiked}},
+			wantName: "Q-Song",
+		},
+		{
+			name:     "nothing playing anywhere yields the zero track",
+			sources:  []source{{fakePlayer{}, noLiked}, {fakePlayer{}, noLiked}},
+			wantName: "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := nowPlayingTrack(context.Background(), tt.sources, io.Discard)
+			if got.Name != tt.wantName {
+				t.Fatalf("name = %q, want %q", got.Name, tt.wantName)
+			}
+			if got.Liked != tt.wantLiked {
+				t.Fatalf("liked = %v, want %v", got.Liked, tt.wantLiked)
+			}
+		})
+	}
+}
+
 func TestUpdateSkipsUnchanged(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	pub := &fakePublisher{}
 	now := dayAt(time.Monday, 14) // at the Mac, nothing playing -> online
 
 	for range 2 {
-		if _, err := update(context.Background(), bio.Default(), fakePlayer{}, atMac, pub, noLiked, now, io.Discard); err != nil {
+		if _, err := update(context.Background(), bio.Default(), srcs(fakePlayer{}, noLiked), atMac, pub, now, io.Discard); err != nil {
 			t.Fatalf("update: %v", err)
 		}
 	}
@@ -146,7 +200,7 @@ func TestUpdateRetriesAfterError(t *testing.T) {
 	pub := &fakePublisher{err: errors.New("boom")}
 	now := dayAt(time.Monday, 14)
 
-	if _, err := update(context.Background(), bio.Default(), fakePlayer{}, atMac, pub, noLiked, now, io.Discard); err == nil {
+	if _, err := update(context.Background(), bio.Default(), srcs(fakePlayer{}, noLiked), atMac, pub, now, io.Discard); err == nil {
 		t.Fatal("update: want error from failed publish, got nil")
 	}
 	if len(pub.sets) != 0 {
@@ -157,7 +211,7 @@ func TestUpdateRetriesAfterError(t *testing.T) {
 	}
 
 	pub.err = nil
-	if _, err := update(context.Background(), bio.Default(), fakePlayer{}, atMac, pub, noLiked, now, io.Discard); err != nil {
+	if _, err := update(context.Background(), bio.Default(), srcs(fakePlayer{}, noLiked), atMac, pub, now, io.Discard); err != nil {
 		t.Fatalf("retry: %v", err)
 	}
 	if len(pub.sets) != 1 || !strings.Contains(pub.sets[0], "online") {
@@ -169,7 +223,7 @@ func TestUpdateAwaySuppressesMusic(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	pub := &fakePublisher{}
 
-	res, err := update(context.Background(), bio.Default(), fakePlayer{track: playingTrack()}, away, pub, noLiked, dayAt(time.Monday, 14), io.Discard)
+	res, err := update(context.Background(), bio.Default(), srcs(fakePlayer{track: playingTrack()}, noLiked), away, pub, dayAt(time.Monday, 14), io.Discard)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -188,7 +242,7 @@ func TestUpdatePausedShowsStatus(t *testing.T) {
 	}
 	pub := &fakePublisher{}
 
-	res, err := update(context.Background(), bio.Default(), fakePlayer{track: playingTrack()}, atMac, pub, noLiked, dayAt(time.Monday, 14), io.Discard)
+	res, err := update(context.Background(), bio.Default(), srcs(fakePlayer{track: playingTrack()}, noLiked), atMac, pub, dayAt(time.Monday, 14), io.Discard)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -202,7 +256,7 @@ func TestUpdateWarnsOnPlayerError(t *testing.T) {
 	var warn strings.Builder
 	pub := &fakePublisher{}
 
-	_, err := update(context.Background(), bio.Default(), fakePlayer{err: errors.New("osascript boom")}, atMac, pub, noLiked, dayAt(time.Monday, 14), &warn)
+	_, err := update(context.Background(), bio.Default(), srcs(fakePlayer{err: errors.New("osascript boom")}, noLiked), atMac, pub, dayAt(time.Monday, 14), &warn)
 	if err != nil {
 		t.Fatalf("a player error must not fail the update: %v", err)
 	}
@@ -222,7 +276,7 @@ func TestUpdateWarnsOnIdleError(t *testing.T) {
 	var warn strings.Builder
 	pub := &fakePublisher{}
 
-	res, err := update(context.Background(), bio.Default(), fakePlayer{track: playingTrack()}, fakeIdle{err: errors.New("ioreg boom")}, pub, noLiked, dayAt(time.Monday, 14), &warn)
+	res, err := update(context.Background(), bio.Default(), srcs(fakePlayer{track: playingTrack()}, noLiked), fakeIdle{err: errors.New("ioreg boom")}, pub, dayAt(time.Monday, 14), &warn)
 	if err != nil {
 		t.Fatalf("an idle-read error must not fail the update: %v", err)
 	}
@@ -242,19 +296,19 @@ func TestPreviewLine(t *testing.T) {
 	playing := bio.Track{Playing: true, Name: "Nocturne", Artist: "Chopin", Position: 81 * time.Second, Duration: 316 * time.Second}
 
 	t.Run("playing renders the now-playing line", func(t *testing.T) {
-		got := previewLine(context.Background(), bio.Default(), fakePlayer{track: playing}, atMac, noLiked, now, io.Discard)
+		got := previewLine(context.Background(), bio.Default(), srcs(fakePlayer{track: playing}, noLiked), atMac, now, io.Discard)
 		if want := `♫ Nocturne · Chopin  1:21 ━━●─────── 5:16`; got != want {
 			t.Fatalf("previewLine() = %q, want %q", got, want)
 		}
 	})
 	t.Run("nothing playing falls back to idle", func(t *testing.T) {
-		if got := previewLine(context.Background(), bio.Default(), fakePlayer{}, atMac, noLiked, now, io.Discard); got != "online" {
+		if got := previewLine(context.Background(), bio.Default(), srcs(fakePlayer{}, noLiked), atMac, now, io.Discard); got != "online" {
 			t.Fatalf("previewLine() = %q, want online", got)
 		}
 	})
 	t.Run("player error surfaces but yields idle", func(t *testing.T) {
 		var warn strings.Builder
-		got := previewLine(context.Background(), bio.Default(), fakePlayer{err: errors.New("boom")}, atMac, noLiked, now, &warn)
+		got := previewLine(context.Background(), bio.Default(), srcs(fakePlayer{err: errors.New("boom")}, noLiked), atMac, now, &warn)
 		if got != "online" {
 			t.Fatalf("previewLine() = %q, want online on error", got)
 		}
@@ -272,7 +326,7 @@ func TestUpdateBlocked(t *testing.T) {
 	policy := bio.Default()
 	policy.Blacklist = []string{"Artist"} // matches playingTrack's artist
 
-	res, err := update(context.Background(), policy, fakePlayer{track: playingTrack()}, atMac, pub, noLiked, dayAt(time.Monday, 14), io.Discard)
+	res, err := update(context.Background(), policy, srcs(fakePlayer{track: playingTrack()}, noLiked), atMac, pub, dayAt(time.Monday, 14), io.Discard)
 	if err != nil {
 		t.Fatalf("update: %v", err)
 	}

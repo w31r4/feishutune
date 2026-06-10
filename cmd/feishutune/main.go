@@ -1,8 +1,8 @@
-// Command feishutune keeps your Feishu personal signature in
-// sync with the song currently playing in the local Spotify desktop app. Each
-// run is one shot: `update` computes the signature and writes it to Feishu only
-// when it changed. Scheduling is delegated to launchd (`install`), and a small
-// state file remembers the last signature and whether now-playing is paused.
+// Command feishutune keeps your Feishu personal signature in sync with the song
+// currently playing in a local music app — Spotify or QQ Music, auto-detected.
+// Each run is one shot: `update` computes the signature and writes it to Feishu
+// only when it changed. Scheduling is delegated to launchd (`install`), and a
+// small state file remembers the last signature and whether now-playing is paused.
 //
 // Run `feishutune help` for the command list and configuration.
 package main
@@ -94,7 +94,10 @@ func (c cli) run(args []string) error {
 }
 
 func (c cli) usage() {
-	fmt.Fprint(c.stdout, `feishutune — sync your Feishu signature to Spotify now-playing (macOS)
+	fmt.Fprint(c.stdout, `feishutune — sync your Feishu signature to your now-playing music (macOS)
+
+Reads whichever is playing: the Spotify app, or the QQ Music app (the latter
+needs `+"`brew install media-control`"+`).
 
 USAGE
   feishutune <command> [flags]
@@ -106,7 +109,7 @@ COMMANDS
   resume        Resume now-playing updates
   status        Print whether paused and the last signature written
   login         Store the Feishu session cookie, read from stdin
-  spotify-login Store the Spotify sp_dc cookie (optional; adds ♡ on liked tracks)
+  spotify-login Store the Spotify sp_dc cookie (optional; adds ♡ on liked Spotify tracks)
   install       Install a launchd agent that runs update on an interval
   uninstall     Remove the launchd agent
   version       Print the version

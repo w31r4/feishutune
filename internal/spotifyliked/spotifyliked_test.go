@@ -9,7 +9,13 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/Durden-T/feishutune/internal/bio"
 )
+
+// trk wraps a Spotify track URI as the bio.Track that Liked now takes, keeping
+// the URI-keyed test cases concise.
+func trk(uri string) bio.Track { return bio.Track{ID: uri} }
 
 // fakeSpotify stands in for the three Spotify endpoints and counts how often each
 // is hit, so tests can assert token caching and cache hits.
@@ -74,10 +80,10 @@ func write(w http.ResponseWriter, v any) { _ = json.NewEncoder(w).Encode(v) }
 // TestLikedDisabled covers the no-network short-circuits: no cookie, and a
 // non-track URI both yield (false, nil) without touching the network.
 func TestLikedDisabled(t *testing.T) {
-	if got, err := New("").Liked(context.Background(), "spotify:track:abc"); err != nil || got {
+	if got, err := New("").Liked(context.Background(), trk("spotify:track:abc")); err != nil || got {
 		t.Fatalf("Liked without a cookie = (%v, %v), want (false, nil)", got, err)
 	}
-	if got, err := New("cookie").Liked(context.Background(), "spotify:ad:123"); err != nil || got {
+	if got, err := New("cookie").Liked(context.Background(), trk("spotify:ad:123")); err != nil || got {
 		t.Fatalf("Liked for a non-track URI = (%v, %v), want (false, nil)", got, err)
 	}
 }
@@ -91,10 +97,10 @@ func TestLikedQueriesAndCaches(t *testing.T) {
 	f := newFakeSpotify(t, map[string]bool{liked: true})
 	c := f.client("cookie")
 
-	if got, err := c.Liked(context.Background(), liked); err != nil || !got {
+	if got, err := c.Liked(context.Background(), trk(liked)); err != nil || !got {
 		t.Fatalf("Liked(liked) = (%v, %v), want (true, nil)", got, err)
 	}
-	if got, err := c.Liked(context.Background(), unliked); err != nil || got {
+	if got, err := c.Liked(context.Background(), trk(unliked)); err != nil || got {
 		t.Fatalf("Liked(unliked) = (%v, %v), want (false, nil)", got, err)
 	}
 	if f.tokenHits != 1 || f.clientHits != 1 {
@@ -104,7 +110,7 @@ func TestLikedQueriesAndCaches(t *testing.T) {
 		t.Fatalf("query hits = %d, want 2 (one per distinct track)", f.queryHits)
 	}
 
-	if got, err := c.Liked(context.Background(), liked); err != nil || !got {
+	if got, err := c.Liked(context.Background(), trk(liked)); err != nil || !got {
 		t.Fatalf("cached Liked(liked) = (%v, %v), want (true, nil)", got, err)
 	}
 	if f.queryHits != 2 {
@@ -123,7 +129,7 @@ func TestLikedCookieRejected(t *testing.T) {
 	c := New("badcookie")
 	c.tokenURL = srv.URL
 
-	_, err := c.Liked(context.Background(), "spotify:track:x")
+	_, err := c.Liked(context.Background(), trk("spotify:track:x"))
 	if err == nil || !strings.Contains(err.Error(), "spotify-login") {
 		t.Fatalf("Liked with a rejected cookie err = %v, want a spotify-login hint", err)
 	}
@@ -139,7 +145,7 @@ func TestLikedLive(t *testing.T) {
 	}
 	t.Setenv("HOME", t.TempDir())
 	// "Mr. Brightside" — a stable, well-known public track.
-	saved, err := New(cookie).Liked(context.Background(), "spotify:track:003vvx7Niy0yvhvHt4a68B")
+	saved, err := New(cookie).Liked(context.Background(), trk("spotify:track:003vvx7Niy0yvhvHt4a68B"))
 	if err != nil {
 		t.Fatalf("live Liked: %v", err)
 	}

@@ -26,11 +26,20 @@ type Publisher interface {
 	Set(context.Context, string) error
 }
 
-// Liker reports whether a track (by Spotify URI) is in the user's Liked Songs.
-// Implemented by package spotifyliked; disabled (always false) when no Spotify
-// cookie is configured.
+// Liker reports whether a track is in the user's liked/favorite songs.
+// Implemented per player: spotifyliked matches on the track's Spotify URI
+// (disabled, always false, when no cookie is configured); qqmusicliked on its
+// name+artist.
 type Liker interface {
-	Liked(ctx context.Context, trackURI string) (bool, error)
+	Liked(ctx context.Context, track bio.Track) (bool, error)
+}
+
+// source pairs a now-playing reader with the liked lookup for that same player,
+// so the ♡ uses each player's own favorites. update and previewLine try sources
+// in order and take the first that is actually playing.
+type source struct {
+	player Player
+	liker  Liker
 }
 
 // updateResult reports the outcome of one update for human and JSON output.
@@ -45,12 +54,12 @@ type updateResult struct {
 // differs from the last one stored in state. A signature matching the blacklist
 // is withheld entirely (reported as blocked, nothing written). A failed write
 // leaves the stored signature unchanged so the next run retries. A NowPlaying,
-// idle-read, or liked-lookup error is reported to warnw and tolerated — a Spotify
+// idle-read, or liked-lookup error is reported to warnw and tolerated — a player
 // hiccup is treated as "nothing playing", an idle-read hiccup as "at the Mac",
 // and a liked-lookup hiccup as "not liked" — so the run degrades to a sensible
 // signature rather than blanking it or failing; a rejected Feishu write is a hard
 // error and propagates.
-func update(ctx context.Context, policy bio.Policy, player Player, idleR IdleReader, pub Publisher, liked Liker, now time.Time, warnw io.Writer) (updateResult, error) {
+func update(ctx context.Context, policy bio.Policy, sources []source, idleR IdleReader, pub Publisher, now time.Time, warnw io.Writer) (updateResult, error) {
 	st, err := store.Load()
 	if err != nil {
 		return updateResult{}, err
@@ -59,7 +68,7 @@ func update(ctx context.Context, policy bio.Policy, player Player, idleR IdleRea
 	active := activeNow(ctx, policy, idleR, warnw)
 	var track bio.Track
 	if !st.Paused && active {
-		track = nowPlayingTrack(ctx, player, liked, warnw)
+		track = nowPlayingTrack(ctx, sources, warnw)
 	}
 
 	text := policy.Compose(now, track, st.Paused, active)
@@ -87,31 +96,36 @@ func update(ctx context.Context, policy bio.Policy, player Player, idleR IdleRea
 // playing track shows its now-playing line (with a ♡ when liked), anything else
 // the idle status. A player, liked, or idle read error is reported to warnw and
 // tolerated the same way update tolerates it.
-func previewLine(ctx context.Context, policy bio.Policy, player Player, idleR IdleReader, liked Liker, now time.Time, warnw io.Writer) string {
-	track := nowPlayingTrack(ctx, player, liked, warnw)
+func previewLine(ctx context.Context, policy bio.Policy, sources []source, idleR IdleReader, now time.Time, warnw io.Writer) string {
+	track := nowPlayingTrack(ctx, sources, warnw)
 	return policy.Preview(track, now, activeNow(ctx, policy, idleR, warnw))
 }
 
-// nowPlayingTrack reads the current track and, when something is playing, fills
-// in its liked status. A player read error is surfaced to warnw and tolerated as
-// "nothing playing"; a liked-lookup error is surfaced and tolerated as "not
-// liked" — so neither can fail the run or blank the signature.
-func nowPlayingTrack(ctx context.Context, player Player, liked Liker, warnw io.Writer) bio.Track {
-	track, err := player.NowPlaying(ctx)
-	if err != nil {
-		fmt.Fprintf(warnw, "now playing: %v\n", err)
-		return bio.Track{}
+// nowPlayingTrack returns the first playing track across the sources, in order,
+// with its liked status filled in from that source's own lookup — so Spotify and
+// QQ Music each contribute their own ♡. A player read error is surfaced to warnw
+// and that source is skipped (treated as "nothing playing"); a liked-lookup error
+// is surfaced and treated as "not liked". Nothing playing anywhere yields the
+// zero Track, which Compose renders as the idle status.
+func nowPlayingTrack(ctx context.Context, sources []source, warnw io.Writer) bio.Track {
+	for _, s := range sources {
+		track, err := s.player.NowPlaying(ctx)
+		if err != nil {
+			fmt.Fprintf(warnw, "now playing: %v\n", err)
+			continue
+		}
+		if track.Playing {
+			track.Liked = likedNow(ctx, s.liker, track, warnw)
+			return track
+		}
 	}
-	if track.Playing {
-		track.Liked = likedNow(ctx, liked, track.ID, warnw)
-	}
-	return track
+	return bio.Track{}
 }
 
-// likedNow reports whether the track is in Liked Songs, surfacing any lookup
-// error to warnw and treating it as not liked.
-func likedNow(ctx context.Context, liked Liker, trackURI string, warnw io.Writer) bool {
-	ok, err := liked.Liked(ctx, trackURI)
+// likedNow reports whether the track is in the source's liked songs, surfacing
+// any lookup error to warnw and treating it as not liked.
+func likedNow(ctx context.Context, liked Liker, track bio.Track, warnw io.Writer) bool {
+	ok, err := liked.Liked(ctx, track)
 	if err != nil {
 		fmt.Fprintf(warnw, "liked: %v\n", err)
 		return false
