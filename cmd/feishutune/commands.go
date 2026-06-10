@@ -12,6 +12,8 @@ import (
 	"github.com/Durden-T/feishutune/internal/config"
 	"github.com/Durden-T/feishutune/internal/feishu"
 	"github.com/Durden-T/feishutune/internal/idle"
+	"github.com/Durden-T/feishutune/internal/qqmusic"
+	"github.com/Durden-T/feishutune/internal/qqmusicliked"
 	"github.com/Durden-T/feishutune/internal/spotify"
 	"github.com/Durden-T/feishutune/internal/spotifyliked"
 	"github.com/Durden-T/feishutune/internal/store"
@@ -19,6 +21,17 @@ import (
 
 // maxSessionBytes caps `login` stdin; a session cookie is well under this.
 const maxSessionBytes = 1 << 16
+
+// musicSources returns the now-playing sources tried in order: Spotify first
+// (its liked ♡ needs the track URI that only the AppleScript adapter provides),
+// then QQ Music via MediaRemote. nowPlayingTrack takes the first that is actually
+// playing, so whichever app you're listening to wins.
+func musicSources() []source {
+	return []source{
+		{spotify.New(), spotifyliked.New(spotifyliked.LoadSPDC())},
+		{qqmusic.New(), qqmusicliked.New()},
+	}
+}
 
 func (c cli) update(ctx context.Context, args []string) error {
 	pol, err := config.Load()
@@ -47,7 +60,7 @@ func (c cli) update(ctx context.Context, args []string) error {
 		return err
 	}
 
-	res, err := update(ctx, policy, spotify.New(), idle.New(), feishu.New(session), spotifyliked.New(spotifyliked.LoadSPDC()), time.Now(), c.stderr)
+	res, err := update(ctx, policy, musicSources(), idle.New(), feishu.New(session), time.Now(), c.stderr)
 	if err != nil {
 		return err
 	}
@@ -85,7 +98,7 @@ func (c cli) preview(ctx context.Context, args []string) error {
 	if err != nil {
 		return codedError{2, err}
 	}
-	fmt.Fprintln(c.stdout, previewLine(ctx, policy, spotify.New(), idle.New(), spotifyliked.New(spotifyliked.LoadSPDC()), time.Now(), c.stderr))
+	fmt.Fprintln(c.stdout, previewLine(ctx, policy, musicSources(), idle.New(), time.Now(), c.stderr))
 	return nil
 }
 
@@ -152,7 +165,8 @@ func (c cli) login(args []string) error {
 }
 
 // spotifyLogin stores the Spotify `sp_dc` login cookie, read from stdin, enabling
-// the ♡ on liked now-playing tracks. It is optional: without it the tool runs
+// the ♡ on liked Spotify now-playing tracks (QQ Music's ♡ needs no login — it
+// reads the app's local library). It is optional: without it the tool runs
 // unchanged, just without the heart. The cookie lasts ~1 year.
 func (c cli) spotifyLogin(args []string) error {
 	if err := c.noArgs("spotify-login", args); err != nil {

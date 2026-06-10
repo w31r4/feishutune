@@ -24,6 +24,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/Durden-T/feishutune/internal/bio"
 )
 
 const (
@@ -71,12 +73,14 @@ func New(spDC string) *Client {
 	}
 }
 
-// Liked reports whether the Spotify track URI ("spotify:track:<base62>") is in
-// the user's Liked Songs. It returns false without error when lookups are
-// disabled (no sp_dc) or the URI is not a Spotify track (ad, local file). A
-// still-fresh cached result skips the network; otherwise it refreshes tokens as
-// needed, queries Spotify, and caches the result.
-func (c *Client) Liked(ctx context.Context, trackURI string) (bool, error) {
+// Liked reports whether the track is in the user's Liked Songs, keyed by its
+// Spotify URI (track.ID, "spotify:track:<base62>"). It returns false without
+// error when lookups are disabled (no sp_dc) or the track is not a Spotify track
+// (ad, local file, or a non-Spotify player). A still-fresh cached result skips
+// the network; otherwise it refreshes tokens as needed, queries Spotify, and
+// caches the result.
+func (c *Client) Liked(ctx context.Context, track bio.Track) (bool, error) {
+	trackURI := track.ID
 	if c.spDC == "" || !strings.HasPrefix(trackURI, trackPrefix) {
 		return false, nil
 	}

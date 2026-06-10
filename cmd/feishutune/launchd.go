@@ -27,7 +27,9 @@ func plistPath(label string) (string, error) {
 
 // renderPlist builds a launchd agent that runs `<exe> update` every interval,
 // at load, and on each tick, with output appended to logPath. PATH is pinned so
-// the agent's minimal environment can still find osascript.
+// the agent's minimal environment can still find osascript and ioreg (/usr/bin,
+// /usr/sbin) and media-control (Homebrew — /opt/homebrew/bin on Apple silicon,
+// /usr/local/bin on Intel — for QQ Music).
 func renderPlist(label, exe, logPath string, interval time.Duration) string {
 	secs := max(int(interval.Seconds()), 1)
 	return fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
@@ -44,7 +46,7 @@ func renderPlist(label, exe, logPath string, interval time.Duration) string {
 	<key>EnvironmentVariables</key>
 	<dict>
 		<key>PATH</key>
-		<string>/usr/bin:/bin:/usr/sbin:/sbin</string>
+		<string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
 	</dict>
 	<key>StartInterval</key>
 	<integer>%d</integer>
