@@ -8,12 +8,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Durden-T/larktune/internal/store"
+	"github.com/Durden-T/feishutune/internal/store"
 )
 
 // defaultLabel names the launchd agent. launchctl identifies the job by it, so
 // install and uninstall must agree.
-const defaultLabel = "larktune"
+const defaultLabel = "feishutune"
 
 // plistPath returns the LaunchAgent path for label
 // (~/Library/LaunchAgents/<label>.plist).

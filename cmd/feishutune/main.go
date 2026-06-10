@@ -1,10 +1,10 @@
-// Command larktune keeps your Feishu personal signature (个性签名) in
+// Command feishutune keeps your Feishu personal signature in
 // sync with the song currently playing in the local Spotify desktop app. Each
 // run is one shot: `update` computes the signature and writes it to Feishu only
 // when it changed. Scheduling is delegated to launchd (`install`), and a small
 // state file remembers the last signature and whether now-playing is paused.
 //
-// Run `larktune help` for the command list and configuration.
+// Run `feishutune help` for the command list and configuration.
 package main
 
 import (
@@ -17,10 +17,10 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/Durden-T/larktune/internal/feishu"
+	"github.com/Durden-T/feishutune/internal/feishu"
 )
 
-const progName = "larktune"
+const progName = "feishutune"
 
 // version is overridable at build time: -ldflags "-X main.version=v1.2.3".
 var version = "dev"
@@ -94,10 +94,10 @@ func (c cli) run(args []string) error {
 }
 
 func (c cli) usage() {
-	fmt.Fprint(c.stdout, `larktune — sync your Feishu signature to Spotify now-playing (macOS)
+	fmt.Fprint(c.stdout, `feishutune — sync your Feishu signature to Spotify now-playing (macOS)
 
 USAGE
-  larktune <command> [flags]
+  feishutune <command> [flags]
 
 COMMANDS
   update        Compute the signature once and push it to Feishu if it changed
@@ -112,16 +112,16 @@ COMMANDS
   version       Print the version
 
 EXAMPLES
-  pbpaste | larktune login         # save the Feishu session cookie from the clipboard
-  pbpaste | larktune spotify-login # save the Spotify sp_dc cookie (enables ♡ on liked tracks)
-  larktune install --interval 30s  # run update every 30s via launchd
-  larktune update --online 摸鱼中   # one sync now, overriding the at-the-Mac status text
-  larktune preview                 # print what the signature looks like right now
-  larktune status --json
-  larktune pause                   # hide now-playing until you resume
+  pbpaste | feishutune login         # save the Feishu session cookie from the clipboard
+  pbpaste | feishutune spotify-login # save the Spotify sp_dc cookie (enables ♡ on liked tracks)
+  feishutune install --interval 30s  # run update every 30s via launchd
+  feishutune update --online afk      # one sync now, overriding the at-the-Mac status text
+  feishutune preview                 # print what the signature looks like right now
+  feishutune status --json
+  feishutune pause                   # hide now-playing until you resume
 
-Run "larktune <command> -h" for a command's flags.
-Config precedence: flags > env > ~/.larktune/config.json > defaults.
+Run "feishutune <command> -h" for a command's flags.
+Config precedence: flags > env > ~/.feishutune/config.json > defaults.
 Env: FEISHU_SESSION, SPOTIFY_SP_DC, ONLINE, OFFLINE, WEEKEND, IDLE_AFTER, BLACKLIST.
 `)
 }

@@ -9,12 +9,12 @@ import (
 	"io"
 	"time"
 
-	"github.com/Durden-T/larktune/internal/config"
-	"github.com/Durden-T/larktune/internal/feishu"
-	"github.com/Durden-T/larktune/internal/idle"
-	"github.com/Durden-T/larktune/internal/spotify"
-	"github.com/Durden-T/larktune/internal/spotifyliked"
-	"github.com/Durden-T/larktune/internal/store"
+	"github.com/Durden-T/feishutune/internal/config"
+	"github.com/Durden-T/feishutune/internal/feishu"
+	"github.com/Durden-T/feishutune/internal/idle"
+	"github.com/Durden-T/feishutune/internal/spotify"
+	"github.com/Durden-T/feishutune/internal/spotifyliked"
+	"github.com/Durden-T/feishutune/internal/store"
 )
 
 // maxSessionBytes caps `login` stdin; a session cookie is well under this.
@@ -129,7 +129,7 @@ func (c cli) setPaused(name string, args []string, paused bool) error {
 	if !paused {
 		verb = "resumed"
 	}
-	fmt.Fprintf(c.stdout, "%s — applies on the next scheduled run; `larktune update` applies it now\n", verb)
+	fmt.Fprintf(c.stdout, "%s — applies on the next scheduled run; `feishutune update` applies it now\n", verb)
 	return nil
 }
 
@@ -142,7 +142,7 @@ func (c cli) login(args []string) error {
 		return fmt.Errorf("read stdin: %w", err)
 	}
 	if len(b) == 0 {
-		return codedError{2, errors.New("no session token on stdin (e.g. `pbpaste | larktune login`)")}
+		return codedError{2, errors.New("no session token on stdin (e.g. `pbpaste | feishutune login`)")}
 	}
 	if err := feishu.SaveSession(string(b)); err != nil {
 		return err
@@ -163,7 +163,7 @@ func (c cli) spotifyLogin(args []string) error {
 		return fmt.Errorf("read stdin: %w", err)
 	}
 	if len(b) == 0 {
-		return codedError{2, errors.New("no sp_dc cookie on stdin (e.g. `pbpaste | larktune spotify-login`)")}
+		return codedError{2, errors.New("no sp_dc cookie on stdin (e.g. `pbpaste | feishutune spotify-login`)")}
 	}
 	if err := spotifyliked.SaveSPDC(string(b)); err != nil {
 		return err

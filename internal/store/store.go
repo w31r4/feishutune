@@ -12,9 +12,9 @@ import (
 )
 
 // dirName is the per-user data directory under $HOME.
-const dirName = ".larktune"
+const dirName = ".feishutune"
 
-// Dir returns the data directory (~/.larktune). It does not create it.
+// Dir returns the data directory (~/.feishutune). It does not create it.
 func Dir() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {

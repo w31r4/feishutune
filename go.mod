@@ -1,4 +1,4 @@
-module github.com/Durden-T/larktune
+module github.com/Durden-T/feishutune
 
 go 1.26.2
 

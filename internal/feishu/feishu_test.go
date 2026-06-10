@@ -14,7 +14,7 @@ func TestClamp(t *testing.T) {
 	if got := clamp("hello"); got != "hello" {
 		t.Fatalf("short string altered: %q", got)
 	}
-	long := strings.Repeat("界", maxDescRune+60) // multibyte, over the limit
+	long := strings.Repeat("é", maxDescRune+60) // multibyte, over the limit
 	got := clamp(long)
 	if n := len([]rune(got)); n != maxDescRune {
 		t.Fatalf("rune length = %d, want %d", n, maxDescRune)
@@ -26,7 +26,7 @@ func TestClamp(t *testing.T) {
 
 func TestLoadSessionMissing(t *testing.T) {
 	t.Setenv("FEISHU_SESSION", "")
-	t.Setenv("HOME", t.TempDir()) // isolate from any real ~/.larktune/session
+	t.Setenv("HOME", t.TempDir()) // isolate from any real ~/.feishutune/session
 	if _, err := LoadSession(); err == nil {
 		t.Fatal("expected an error when no session is configured")
 	}
@@ -143,7 +143,7 @@ func TestSetLive(t *testing.T) {
 		t.Skip("set FEISHU_SESSION to run the live integration test")
 	}
 	c := New(s)
-	if err := c.Set(context.Background(), "larktune ✦ test"); err != nil {
+	if err := c.Set(context.Background(), "feishutune ✦ test"); err != nil {
 		t.Fatalf("set: %v", err)
 	}
 	if err := c.Set(context.Background(), ""); err != nil {

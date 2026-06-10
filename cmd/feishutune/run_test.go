@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Durden-T/larktune/internal/bio"
-	"github.com/Durden-T/larktune/internal/store"
+	"github.com/Durden-T/feishutune/internal/bio"
+	"github.com/Durden-T/feishutune/internal/store"
 )
 
 type fakePlayer struct {
@@ -129,15 +129,15 @@ func TestUpdateShowsHeartWhenLiked(t *testing.T) {
 func TestUpdateSkipsUnchanged(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	pub := &fakePublisher{}
-	now := dayAt(time.Monday, 14) // at the Mac, nothing playing -> 在线
+	now := dayAt(time.Monday, 14) // at the Mac, nothing playing -> online
 
 	for range 2 {
 		if _, err := update(context.Background(), bio.Default(), fakePlayer{}, atMac, pub, noLiked, now, io.Discard); err != nil {
 			t.Fatalf("update: %v", err)
 		}
 	}
-	if len(pub.sets) != 1 || !strings.Contains(pub.sets[0], "在线") {
-		t.Fatalf("publishes = %v, want a single 在线 (same minute -> no second write)", pub.sets)
+	if len(pub.sets) != 1 || !strings.Contains(pub.sets[0], "online") {
+		t.Fatalf("publishes = %v, want a single online (same minute -> no second write)", pub.sets)
 	}
 }
 
@@ -160,8 +160,8 @@ func TestUpdateRetriesAfterError(t *testing.T) {
 	if _, err := update(context.Background(), bio.Default(), fakePlayer{}, atMac, pub, noLiked, now, io.Discard); err != nil {
 		t.Fatalf("retry: %v", err)
 	}
-	if len(pub.sets) != 1 || !strings.Contains(pub.sets[0], "在线") {
-		t.Fatalf("publishes = %v, want one 在线 after retry", pub.sets)
+	if len(pub.sets) != 1 || !strings.Contains(pub.sets[0], "online") {
+		t.Fatalf("publishes = %v, want one online after retry", pub.sets)
 	}
 }
 
@@ -173,8 +173,8 @@ func TestUpdateAwaySuppressesMusic(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(res.Signature, "离线") || strings.Contains(res.Signature, "♫") {
-		t.Fatalf("signature = %q, want 离线 with music suppressed while away", res.Signature)
+	if !strings.Contains(res.Signature, "away") || strings.Contains(res.Signature, "♫") {
+		t.Fatalf("signature = %q, want away with music suppressed while away", res.Signature)
 	}
 	if len(pub.sets) != 1 {
 		t.Fatalf("publishes = %v, want exactly one", pub.sets)
@@ -192,8 +192,8 @@ func TestUpdatePausedShowsStatus(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !res.Paused || !strings.Contains(res.Signature, "在线") || strings.Contains(res.Signature, "♫") {
-		t.Fatalf("result = %+v, want paused showing 在线 (music suppressed)", res)
+	if !res.Paused || !strings.Contains(res.Signature, "online") || strings.Contains(res.Signature, "♫") {
+		t.Fatalf("result = %+v, want paused showing online (music suppressed)", res)
 	}
 }
 
@@ -209,8 +209,8 @@ func TestUpdateWarnsOnPlayerError(t *testing.T) {
 	if !strings.Contains(warn.String(), "osascript boom") {
 		t.Fatalf("warn = %q, want it to surface the player error", warn.String())
 	}
-	if len(pub.sets) != 1 || !strings.Contains(pub.sets[0], "在线") {
-		t.Fatalf("publishes = %v, want 在线 fallback when the player errors", pub.sets)
+	if len(pub.sets) != 1 || !strings.Contains(pub.sets[0], "online") {
+		t.Fatalf("publishes = %v, want online fallback when the player errors", pub.sets)
 	}
 }
 
@@ -239,24 +239,24 @@ func TestUpdateWarnsOnIdleError(t *testing.T) {
 // error is surfaced to warnw but still yields the idle status.
 func TestPreviewLine(t *testing.T) {
 	now := dayAt(time.Monday, 14)
-	playing := bio.Track{Playing: true, Name: "夜曲", Artist: "周杰伦", Position: 81 * time.Second, Duration: 316 * time.Second}
+	playing := bio.Track{Playing: true, Name: "Nocturne", Artist: "Chopin", Position: 81 * time.Second, Duration: 316 * time.Second}
 
 	t.Run("playing renders the now-playing line", func(t *testing.T) {
 		got := previewLine(context.Background(), bio.Default(), fakePlayer{track: playing}, atMac, noLiked, now, io.Discard)
-		if want := `♫ 夜曲 · 周杰伦  1:21 ━━●─────── 5:16`; got != want {
+		if want := `♫ Nocturne · Chopin  1:21 ━━●─────── 5:16`; got != want {
 			t.Fatalf("previewLine() = %q, want %q", got, want)
 		}
 	})
 	t.Run("nothing playing falls back to idle", func(t *testing.T) {
-		if got := previewLine(context.Background(), bio.Default(), fakePlayer{}, atMac, noLiked, now, io.Discard); got != "在线" {
-			t.Fatalf("previewLine() = %q, want 在线", got)
+		if got := previewLine(context.Background(), bio.Default(), fakePlayer{}, atMac, noLiked, now, io.Discard); got != "online" {
+			t.Fatalf("previewLine() = %q, want online", got)
 		}
 	})
 	t.Run("player error surfaces but yields idle", func(t *testing.T) {
 		var warn strings.Builder
 		got := previewLine(context.Background(), bio.Default(), fakePlayer{err: errors.New("boom")}, atMac, noLiked, now, &warn)
-		if got != "在线" {
-			t.Fatalf("previewLine() = %q, want 在线 on error", got)
+		if got != "online" {
+			t.Fatalf("previewLine() = %q, want online on error", got)
 		}
 		if !strings.Contains(warn.String(), "boom") {
 			t.Fatalf("warn = %q, want it to surface the error", warn.String())

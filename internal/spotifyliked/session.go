@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/Durden-T/larktune/internal/store"
+	"github.com/Durden-T/feishutune/internal/store"
 )
 
 // spDCEnv overrides the stored cookie, mirroring how FEISHU_SESSION overrides
@@ -51,7 +51,7 @@ func SaveSPDC(cookie string) error {
 func spDCFile() string {
 	dir, err := store.Dir()
 	if err != nil {
-		return ".larktune-sp_dc"
+		return ".feishutune-sp_dc"
 	}
 	return filepath.Join(dir, "sp_dc")
 }

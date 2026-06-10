@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Durden-T/larktune/internal/bio"
+	"github.com/Durden-T/feishutune/internal/bio"
 )
 
 func TestParse(t *testing.T) {
@@ -21,8 +21,8 @@ func TestParse(t *testing.T) {
 		{name: "empty", in: ""},
 		{
 			name: "playing with progress",
-			in:   "playing" + us + "喬克叔叔" + us + "周杰倫" + us + "魔杰座" + us + "316501" + us + "81" + us + "spotify:track:5hvyS23Ya468Sp4VeL48U5\n",
-			want: bio.Track{Playing: true, Name: "喬克叔叔", Artist: "周杰倫", Album: "魔杰座", Duration: 316501 * time.Millisecond, Position: 81 * time.Second, ID: "spotify:track:5hvyS23Ya468Sp4VeL48U5"},
+			in:   "playing" + us + "Jukebox Uncle" + us + "Jay Chou" + us + "Capricorn" + us + "316501" + us + "81" + us + "spotify:track:5hvyS23Ya468Sp4VeL48U5\n",
+			want: bio.Track{Playing: true, Name: "Jukebox Uncle", Artist: "Jay Chou", Album: "Capricorn", Duration: 316501 * time.Millisecond, Position: 81 * time.Second, ID: "spotify:track:5hvyS23Ya468Sp4VeL48U5"},
 		},
 		{
 			name: "paused keeps metadata but is not playing",

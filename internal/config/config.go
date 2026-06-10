@@ -13,8 +13,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Durden-T/larktune/internal/bio"
-	"github.com/Durden-T/larktune/internal/store"
+	"github.com/Durden-T/feishutune/internal/bio"
+	"github.com/Durden-T/feishutune/internal/store"
 )
 
 // FileName is the config file within the data directory.
@@ -31,12 +31,12 @@ type Policy struct {
 	Blacklist string `json:"blacklist"` // comma-separated substrings that suppress publishing
 }
 
-// Defaults returns the built-in policy: 在线 / 离线 / 周末了！, away after 10m idle.
+// Defaults returns the built-in policy: online / away / weekend, away after 10m idle.
 func Defaults() Policy {
 	return Policy{
-		Online:    "在线",
-		Offline:   "离线",
-		Weekend:   "周末了！",
+		Online:    "online",
+		Offline:   "away",
+		Weekend:   "weekend",
 		IdleAfter: "10m",
 	}
 }

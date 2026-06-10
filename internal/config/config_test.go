@@ -40,7 +40,7 @@ func TestLoadPrecedence(t *testing.T) {
 	t.Setenv("HOME", home)
 	clearPolicyEnv(t)
 
-	dir := filepath.Join(home, ".larktune")
+	dir := filepath.Join(home, ".feishutune")
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -76,7 +76,7 @@ func TestLoadExplicitEmpty(t *testing.T) {
 	t.Setenv("HOME", home)
 	clearPolicyEnv(t)
 
-	dir := filepath.Join(home, ".larktune")
+	dir := filepath.Join(home, ".feishutune")
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -108,7 +108,7 @@ func TestToBio(t *testing.T) {
 	if b.IdleAfter != 10*time.Minute {
 		t.Fatalf("IdleAfter = %v, want 10m", b.IdleAfter)
 	}
-	if b.Online != "在线" || b.Offline != "离线" || b.Weekend != "周末了！" {
+	if b.Online != "online" || b.Offline != "away" || b.Weekend != "weekend" {
 		t.Fatalf("texts = %q / %q / %q", b.Online, b.Offline, b.Weekend)
 	}
 

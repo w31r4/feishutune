@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Durden-T/larktune/internal/feishu"
-	"github.com/Durden-T/larktune/internal/spotifyliked"
-	"github.com/Durden-T/larktune/internal/store"
+	"github.com/Durden-T/feishutune/internal/feishu"
+	"github.com/Durden-T/feishutune/internal/spotifyliked"
+	"github.com/Durden-T/feishutune/internal/store"
 )
 
 // newCLI wires a cli to in-memory streams and returns the captured stdout/stderr.
@@ -212,11 +212,11 @@ func TestPrintUpdate(t *testing.T) {
 		quiet  bool
 		want   string // "" means: expect empty output
 	}{
-		{"changed prints set line", updateResult{Changed: true, Signature: "在线"}, false, false, "set: 在线\n"},
-		{"unchanged is silent", updateResult{Signature: "在线"}, false, false, ""},
-		{"quiet is silent even on change", updateResult{Changed: true, Signature: "在线"}, false, true, ""},
-		{"json always prints", updateResult{Paused: true, Signature: "离线"}, true, false, `"signature":"离线"`},
-		{"blocked prints a notice", updateResult{Blocked: true, Signature: "在线"}, false, false, "blocked: signature withheld (matched blacklist)\n"},
+		{"changed prints set line", updateResult{Changed: true, Signature: "online"}, false, false, "set: online\n"},
+		{"unchanged is silent", updateResult{Signature: "online"}, false, false, ""},
+		{"quiet is silent even on change", updateResult{Changed: true, Signature: "online"}, false, true, ""},
+		{"json always prints", updateResult{Paused: true, Signature: "away"}, true, false, `"signature":"away"`},
+		{"blocked prints a notice", updateResult{Blocked: true, Signature: "online"}, false, false, "blocked: signature withheld (matched blacklist)\n"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

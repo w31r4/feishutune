@@ -9,10 +9,10 @@ import (
 )
 
 func TestRenderPlist(t *testing.T) {
-	got := renderPlist("my&label", "/usr/local/bin/larktune", "/tmp/agent.log", 30*time.Second)
+	got := renderPlist("my&label", "/usr/local/bin/feishutune", "/tmp/agent.log", 30*time.Second)
 	for _, want := range []string{
 		"<string>my&amp;label</string>", // label, XML-escaped
-		"<string>/usr/local/bin/larktune</string>",
+		"<string>/usr/local/bin/feishutune</string>",
 		"<string>update</string>",
 		"<integer>30</integer>",
 		"<key>RunAtLoad</key>",
@@ -35,11 +35,11 @@ func TestPlistPath(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 
-	got, err := plistPath("larktune")
+	got, err := plistPath("feishutune")
 	if err != nil {
 		t.Fatalf("plistPath: %v", err)
 	}
-	want := filepath.Join(home, "Library", "LaunchAgents", "larktune.plist")
+	want := filepath.Join(home, "Library", "LaunchAgents", "feishutune.plist")
 	if got != want {
 		t.Fatalf("plistPath = %q, want %q", got, want)
 	}
@@ -51,14 +51,14 @@ func TestWriteAgent(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 
-	path, logPath, err := writeAgent("larktune", time.Minute)
+	path, logPath, err := writeAgent("feishutune", time.Minute)
 	if err != nil {
 		t.Fatalf("writeAgent: %v", err)
 	}
-	if want := filepath.Join(home, "Library", "LaunchAgents", "larktune.plist"); path != want {
+	if want := filepath.Join(home, "Library", "LaunchAgents", "feishutune.plist"); path != want {
 		t.Errorf("plist path = %q, want %q", path, want)
 	}
-	if want := filepath.Join(home, ".larktune", "agent.log"); logPath != want {
+	if want := filepath.Join(home, ".feishutune", "agent.log"); logPath != want {
 		t.Errorf("log path = %q, want %q", logPath, want)
 	}
 	b, err := os.ReadFile(path)

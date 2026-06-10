@@ -1,4 +1,4 @@
-// Package feishu sets the current user's personal signature (个性签名) on
+// Package feishu sets the current user's personal signature on
 // Feishu/Lark via the web client's cookie-authenticated endpoint:
 //
 //	PUT https://internal-api-lark-api.feishu.cn/passport/users/details/
@@ -46,7 +46,7 @@ func New(session string) *Client {
 }
 
 // LoadSession reads the web session token from FEISHU_SESSION, falling back to
-// ~/.larktune/session. It does not hit the network.
+// ~/.feishutune/session. It does not hit the network.
 func LoadSession() (string, error) {
 	if s := strings.TrimSpace(os.Getenv("FEISHU_SESSION")); s != "" {
 		return s, nil
@@ -56,7 +56,7 @@ func LoadSession() (string, error) {
 			return s, nil
 		}
 	}
-	return "", fmt.Errorf("feishu: no session token: run `larktune login` with the `session` cookie "+
+	return "", fmt.Errorf("feishu: no session token: run `feishutune login` with the `session` cookie "+
 		"from a logged-in feishu.cn browser, set FEISHU_SESSION, or write it to %s", sessionFile())
 }
 
@@ -141,7 +141,7 @@ func clamp(s string) string {
 func sessionFile() string {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return ".larktune-session"
+		return ".feishutune-session"
 	}
-	return filepath.Join(home, ".larktune", "session")
+	return filepath.Join(home, ".feishutune", "session")
 }

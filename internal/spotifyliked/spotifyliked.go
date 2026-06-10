@@ -163,7 +163,7 @@ func (c *Client) mintAccessToken(ctx context.Context) (string, time.Time, error)
 	}
 	// An anonymous (or empty) token means sp_dc was not accepted — i.e. expired.
 	if r.AccessToken == "" || r.IsAnonymous {
-		return "", time.Time{}, fmt.Errorf("spotify liked: sp_dc rejected — run `larktune spotify-login` with a fresh sp_dc cookie")
+		return "", time.Time{}, fmt.Errorf("spotify liked: sp_dc rejected — run `feishutune spotify-login` with a fresh sp_dc cookie")
 	}
 	exp := time.UnixMilli(r.ExpiresMs)
 	if r.ExpiresMs == 0 {

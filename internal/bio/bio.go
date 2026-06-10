@@ -1,12 +1,12 @@
-// Package bio decides what the Feishu personal signature (个性签名) should say.
+// Package bio decides what the Feishu personal signature should say.
 //
 // The signature answers "what am I doing right now?". While you are at the Mac a
 // playing track is shown; otherwise — idle, away, or manually paused — a status
 // is shown instead:
 //
-//   - weekend -> Weekend (周末了！)
-//   - at the Mac (recent input) -> Online (在线)
-//   - away (no input past the idle threshold) -> Offline (离线)
+//   - weekend -> Weekend ("weekend")
+//   - at the Mac (recent input) -> Online ("online")
+//   - away (no input past the idle threshold) -> Offline ("away")
 //
 // Compose is a pure function of (now, track, paused, active); all I/O — reading
 // the player and the Mac's idle time — lives in the adapter packages.
@@ -58,12 +58,12 @@ type Policy struct {
 	Blacklist []string
 }
 
-// Default returns the standard policy: 在线 / 离线 / 周末了！, away after 10m idle.
+// Default returns the standard policy: online / away / weekend, away after 10m idle.
 func Default() Policy {
 	return Policy{
-		Online:    "在线",
-		Offline:   "离线",
-		Weekend:   "周末了！",
+		Online:    "online",
+		Offline:   "away",
+		Weekend:   "weekend",
 		IdleAfter: 10 * time.Minute,
 	}
 }

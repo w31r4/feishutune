@@ -106,10 +106,10 @@ func TestNowPlaying(t *testing.T) {
 	})
 	t.Run("liked track carries the heart after the name", func(t *testing.T) {
 		got := nowPlaying(Track{
-			Playing: true, Name: "夜长梦多", Artist: "蛙池", Liked: true,
+			Playing: true, Name: "Dreamscape", Artist: "Frog Pond", Liked: true,
 			Position: 168 * time.Second, Duration: 464 * time.Second,
 		})
-		if want := `♫ 夜长梦多 ♡ · 蛙池  2:48 ━━━●────── 7:44`; got != want {
+		if want := `♫ Dreamscape ♡ · Frog Pond  2:48 ━━━●────── 7:44`; got != want {
 			t.Fatalf("nowPlaying() = %q, want %q", got, want)
 		}
 	})
@@ -208,15 +208,15 @@ func TestCleanTitle(t *testing.T) {
 // blacklist or an empty entry matches nothing.
 func TestBlocked(t *testing.T) {
 	p := Default()
-	p.Blacklist = []string{"secret", "周杰伦"}
+	p.Blacklist = []string{"secret", "podcast"}
 	cases := []struct {
 		text string
 		want bool
 	}{
-		{"♫ 夜曲 · 周杰伦  ━●──── 1:21/5:16", true},
+		{"♫ The Daily Podcast · NYT  ━●──── 1:21/5:16", true},
 		{"♫ Secret Garden · Someone", true},
-		{"♫ 山阴路的夏天 · 李志", false},
-		{"在线", false},
+		{"♫ Summer on Shanyin Road · Li Zhi", false},
+		{"online", false},
 	}
 	for _, c := range cases {
 		if got := p.Blocked(c.text); got != c.want {

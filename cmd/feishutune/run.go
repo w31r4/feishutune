@@ -6,8 +6,8 @@ import (
 	"io"
 	"time"
 
-	"github.com/Durden-T/larktune/internal/bio"
-	"github.com/Durden-T/larktune/internal/store"
+	"github.com/Durden-T/feishutune/internal/bio"
+	"github.com/Durden-T/feishutune/internal/store"
 )
 
 // Player reads the current track. Implemented by package spotify.

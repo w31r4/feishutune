@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Durden-T/larktune/internal/bio"
+	"github.com/Durden-T/feishutune/internal/bio"
 )
 
 // fieldSep is `character id 31` (ASCII Unit Separator), emitted between fields

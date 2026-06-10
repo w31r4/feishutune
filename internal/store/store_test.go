@@ -26,7 +26,7 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 		t.Fatalf("Save: %v", err)
 	}
 
-	path := filepath.Join(home, ".larktune", "state.json")
+	path := filepath.Join(home, ".feishutune", "state.json")
 	info, err := os.Stat(path)
 	if err != nil {
 		t.Fatalf("stat state.json: %v", err)

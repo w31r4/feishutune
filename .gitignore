@@ -1,8 +1,8 @@
 # macOS
 .DS_Store
 
-# Compiled binary (built into the repo root by `go build -o larktune`)
-/larktune
+# Compiled binary (built into the repo root by `go build -o feishutune`)
+/feishutune
 
 # Local research / scratch dumps
 .firecrawl/
