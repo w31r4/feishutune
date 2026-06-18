@@ -6,11 +6,11 @@
 
 [English](README.md) | 简体中文
 
-让你的飞书个性签名实时同步**本地音乐应用**正在播放的歌曲 —— 自动识别 **Spotify**
-或 **QQ 音乐**，仅支持 macOS。
+让你的飞书个性签名实时同步**本地音乐应用**正在播放的歌曲 —— 自动识别 **网易云音乐**、
+**Spotify** 或 **QQ 音乐**，仅支持 macOS。
 
 ```text
-♫ Clair de Lune ♡ · Debussy  2:11 ━━━━●───── 5:08
+♫ Clair de Lune ♡ · Debussy  3:51 ━━━━━━━●── 5:08
 ```
 
 当有歌曲在播放且你正在使用 Mac 时，签名会显示为这一行正在播放的内容：歌曲、若已喜欢
@@ -23,18 +23,18 @@
 没有常驻后台进程 —— 由一个 `launchd` 定时任务按间隔（默认每分钟）运行 `update`，而变化
 检测让绝大多数定时执行都是廉价的空操作。
 
+- **网易云音乐** 和 **QQ 音乐** 通过它们发布到 macOS 系统“正在播放”信息读取，借助
+  [`media-control`](https://github.com/ungive/media-control) 命令行工具。顺序是网易云、
+  Spotify、QQ 音乐。
 - **Spotify** 通过 AppleScript（`osascript`）在本地读取 —— 仅限本机，不含手机或
   Spotify Connect 设备。
-- **QQ 音乐** 不支持 AppleScript，因此通过它发布到 macOS 系统“正在播放”信息读取，
-  借助 [`media-control`](https://github.com/ungive/media-control) 命令行工具。先尝试
-  Spotify，再尝试 QQ 音乐 —— 哪个真正在播放就用哪个。
 - **空闲检测** 使用 `ioreg`（`HIDIdleTime`）判断你是否在键盘前，从而在你离开时切换到
   离开状态。
 - **飞书** 通过带 Cookie 鉴权的 `PUT` 请求更新到网页客户端所用的同一个接口 —— 这是非官方
   接口，飞书端的改动可能会让它失效。
 - 喜欢歌曲上的 **♡** 是可选的。Spotify 通过你的 `sp_dc` Cookie 调用 Spotify 内部网页
-  GraphQL 读取；QQ 音乐则直接读取应用本地的收藏列表（无需登录脚本），按歌名 + 歌手
-  匹配。两者都没有时，工具照常运行，只是不显示爱心。
+  GraphQL 读取；网易云可在配置后使用官方 API，否则回退到本地缓存；QQ 音乐直接读取
+  本地库。读取不到时，工具照常运行，只是不显示爱心。
 
 本工具在设计上容错：播放器读取出错时显示空闲状态而非失败，空闲读取出错时默认你在场，
 喜欢状态读取出错时仅去掉 ♡，飞书写入失败会在下一次定时执行时自然重试。
@@ -42,8 +42,8 @@
 ## 环境要求
 
 - macOS（依赖 `osascript`、`ioreg`、`sqlite3` 和 `launchd`）
-- 一个音乐应用：Spotify 桌面版，和/或 QQ 音乐桌面版
-- 仅 QQ 音乐需要：[`media-control`](https://github.com/ungive/media-control)
+- 一个音乐应用：网易云音乐、Spotify 桌面版，和/或 QQ 音乐桌面版
+- 使用网易云音乐或 QQ 音乐需要：[`media-control`](https://github.com/ungive/media-control)
   —— `brew install media-control`（只用 Spotify 的用户无需安装）
 - 构建需要 Go 1.26+
 - 一个飞书账号（已针对飞书测试；未在 Lark 国际版上验证）
@@ -85,6 +85,34 @@ pbpaste | feishutune spotify-login
 匹配。只需登录 QQ 音乐应用，让收藏同步到本地即可。（由于是按文本而非稳定 ID 匹配，属
 尽力而为，可能漏掉与其他版本同名同歌手的歌曲。）
 
+**网易云音乐：** 无需任何设置 —— ♡ 从应用本地缓存里的「我喜欢的音乐」读取。有稳定歌曲
+ID 时优先按 ID 匹配；没有 ID 时才严格按歌名 + 歌手 + 专辑/时长匹配，因此宁可漏掉，也
+避免把其他版本误标成喜欢。
+
+也可以保存网易云开放平台凭据，在确认官方 endpoint 后启用 API 元数据和红心增强：
+
+```bash
+cat netease-auth.json | feishutune netease-auth
+```
+
+```json
+{
+  "app_id": "your-app-id",
+  "private_key": "-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----",
+  "access_token": "oauth-access-token",
+  "refresh_token": "optional-refresh-token",
+  "expires_at": "2026-06-12T00:00:00Z"
+}
+```
+
+凭据保存到 `~/.feishutune/netease-auth.json`。环境变量
+`NETEASE_APP_ID`、`NETEASE_PRIVATE_KEY`、`NETEASE_OAUTH_TOKEN`、
+`NETEASE_REFRESH_TOKEN`、`NETEASE_TOKEN_EXPIRES_AT` 会覆盖文件值。歌曲详情和严格
+搜歌默认使用已验证存在的开放平台 path；仍可通过
+`NETEASE_API_SONG_DETAIL_PATH`、`NETEASE_API_SEARCH_PATH`、
+`NETEASE_API_BASE_URL` 覆盖。官方红心状态还需要
+`NETEASE_API_LIKED_PATH`，直到红心歌单 path 被确认。
+
 ### 3. 试运行
 
 ```bash
@@ -117,6 +145,7 @@ feishutune uninstall
 | `status`        | 打印是否已暂停以及上次写入的签名                          |
 | `login`         | 保存飞书 session Cookie（从 stdin 读取）                  |
 | `spotify-login` | 保存用于 Spotify ♡ 的 `sp_dc` Cookie（从 stdin 读取）    |
+| `netease-auth`  | 保存用于网易云 API 增强的凭据 JSON                        |
 | `install`       | 安装一个按间隔运行 `update` 的 launchd 任务              |
 | `uninstall`     | 移除 launchd 任务                                         |
 | `version`       | 打印版本号                                                |
@@ -158,13 +187,13 @@ feishutune uninstall
 
 - `session` —— 飞书 session Cookie
 - `sp_dc` —— 用于 Spotify ♡ 的 Spotify Cookie（如已设置）
+- `netease-auth.json` —— 网易云开放平台凭据（如已设置）
 - `config.json` —— 可选的配置覆盖
 - `state.json` —— 上次写入的签名和暂停标志
 - `spotify-cache.json` —— 缓存的 Spotify 令牌和各歌曲的喜欢状态
 - `agent.log` —— 定时 launchd 运行的 stdout 和 stderr（便于排查问题）
 
-（QQ 音乐在此处无需任何文件 —— 它的正在播放来自 `media-control`，♡ 直接读取 QQ 音乐
-应用自己的库。）
+（网易云和 QQ 音乐的正在播放来自 `media-control`；本地 ♡ 兜底直接读取应用自己的缓存或库。）
 
 Cookie 以明文形式保存（不在 macOS 钥匙串中），但文件仅属主可访问 —— 目录为 `0700`，
 每个文件为 `0600`。
@@ -187,10 +216,13 @@ Cookie 以明文形式保存（不在 macOS 钥匙串中），但文件仅属主
   `pbpaste | feishutune login`。
 - **Spotify 歌曲没有 ♡。** `sp_dc` Cookie 缺失或过期（约 1 年）；日志会提示何时需要重新授权。
   获取新的 Cookie 后运行 `pbpaste | feishutune spotify-login`。
+- **网易云歌曲没有 ♡。** 保持登录网易云应用，让「我喜欢的音乐」同步到本地缓存。API 增强是
+  可选能力，需要 `netease-auth`；官方 API 红心状态还需要已确认的红心歌单 path。匹配策略较严格，
+  因此某些版本可能会漏掉，而不是误标。
 - **QQ 音乐歌曲没有 ♡。** 保持登录 QQ 音乐应用，让「我喜欢」同步到本地库。匹配按歌名 + 歌手进行，
   因此同一首歌的其他版本可能会漏掉。
-- **未检测到 QQ 音乐。** 安装 `media-control`（`brew install media-control`）；任务会在
-  `/opt/homebrew/bin`（Apple 芯片）和 `/usr/local/bin`（Intel）中查找它。
+- **未检测到网易云 / QQ 音乐。** 安装 `media-control`（`brew install media-control`）；
+  任务会在 `/opt/homebrew/bin`（Apple 芯片）和 `/usr/local/bin`（Intel）中查找它。
 
 ## 开发
 

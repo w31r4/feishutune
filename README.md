@@ -7,10 +7,11 @@
 English | [简体中文](README.zh-CN.md)
 
 Keep your Feishu personal signature in sync with whatever is playing in your
-**local music app** — **Spotify** or **QQ Music (QQ音乐)**, auto-detected — on macOS.
+**local music app** — **NetEase Cloud Music (网易云音乐)**, **Spotify**, or
+**QQ Music (QQ音乐)**, auto-detected — on macOS.
 
 ```text
-♫ Clair de Lune ♡ · Debussy  2:11 ━━━━●───── 5:08
+♫ Clair de Lune ♡ · Debussy  3:51 ━━━━━━━●── 5:08
 ```
 
 When a track is playing and you're at your Mac, your signature becomes that
@@ -26,20 +27,21 @@ write it to Feishu *only if it changed*. There's no background daemon — a
 `launchd` agent just runs `update` on an interval (every minute by default), and
 the change-detection means almost all of those ticks are cheap no-ops.
 
+- **NetEase Cloud Music** and **QQ Music** are read from the system "Now
+  Playing" info they publish to macOS, via the [`media-control`](https://github.com/ungive/media-control)
+  CLI. NetEase is tried first, then Spotify, then QQ Music.
 - **Spotify** is read locally via AppleScript (`osascript`) — this Mac only, not
   phones or Spotify Connect devices.
-- **QQ Music** has no AppleScript support, so it's read from the system "Now
-  Playing" info it publishes to macOS, via the [`media-control`](https://github.com/ungive/media-control)
-  CLI. Spotify is tried first, then QQ Music — whichever is actually playing wins.
 - **Idle detection** uses `ioreg` (`HIDIdleTime`) to tell whether you're at the
   keyboard, so it can switch to the away status when you step away.
 - **Feishu** is updated with a cookie-authenticated `PUT` to the same web
   endpoint the browser client uses — an unofficial API, so a Feishu-side change
   could break it.
 - The **♡** on liked tracks is optional. For Spotify it's read from Spotify's
-  internal web GraphQL using your `sp_dc` cookie; for QQ Music it's read from the
-  app's local favorites library (no login needed), matched by song name + artist.
-  Without either, the tool runs unchanged, just without the heart.
+  internal web GraphQL using your `sp_dc` cookie; for NetEase it can use the
+  official API when configured and otherwise falls back to the app's local cache;
+  for QQ Music it's read from the local library. Without these, the tool runs
+  unchanged, just without the heart.
 
 The tool is error-tolerant by design: a player read error shows the idle status
 instead of failing, an idle read error assumes you're present, a liked-status
@@ -49,8 +51,8 @@ next tick.
 ## Requirements
 
 - macOS (relies on `osascript`, `ioreg`, `sqlite3`, and `launchd`)
-- A music app: the Spotify desktop app, and/or the QQ Music desktop app
-- For QQ Music only: [`media-control`](https://github.com/ungive/media-control)
+- A music app: NetEase Cloud Music, Spotify, and/or QQ Music desktop app
+- For NetEase Cloud Music or QQ Music: [`media-control`](https://github.com/ungive/media-control)
   — `brew install media-control` (Spotify-only users don't need it)
 - Go 1.26+ to build
 - A Feishu account (tested against Feishu; not verified on Lark, the global
@@ -97,6 +99,37 @@ Music app so your favorites are synced locally. (Because it matches on text
 rather than a stable ID, it's best-effort and could miss tracks that share a
 name and artist with a different version.)
 
+**NetEase Cloud Music:** nothing to set up — the ♡ is read from the app's local
+cache for "我喜欢的音乐". A stable track id is used when available; otherwise the
+match is intentionally strict on title + artist + album/duration, so it may miss
+some tracks rather than mark the wrong version.
+
+Optionally, store NetEase Open Platform credentials to enable API-based metadata
+and liked-status enhancement once the verified endpoint paths are configured:
+
+```bash
+cat netease-auth.json | feishutune netease-auth
+```
+
+```json
+{
+  "app_id": "your-app-id",
+  "private_key": "-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----",
+  "access_token": "oauth-access-token",
+  "refresh_token": "optional-refresh-token",
+  "expires_at": "2026-06-12T00:00:00Z"
+}
+```
+
+The credentials are stored at `~/.feishutune/netease-auth.json`, with
+environment overrides `NETEASE_APP_ID`, `NETEASE_PRIVATE_KEY`,
+`NETEASE_OAUTH_TOKEN`, `NETEASE_REFRESH_TOKEN`, and
+`NETEASE_TOKEN_EXPIRES_AT`. Song detail and strict song search use verified
+Open Platform paths by default. Advanced users can still override them with
+`NETEASE_API_SONG_DETAIL_PATH`, `NETEASE_API_SEARCH_PATH`, and
+`NETEASE_API_BASE_URL`. Official liked-status lookup also needs
+`NETEASE_API_LIKED_PATH` until the red-heart playlist path is confirmed.
+
 ### 3. Try it
 
 ```bash
@@ -129,6 +162,7 @@ feishutune uninstall
 | `status`        | Print whether paused and the last signature written           |
 | `login`         | Store the Feishu session cookie (from stdin)                  |
 | `spotify-login` | Store the Spotify `sp_dc` cookie for the Spotify ♡ (from stdin) |
+| `netease-auth`  | Store NetEase API credentials JSON for optional enhancement   |
 | `install`       | Install a launchd agent that runs `update` on an interval     |
 | `uninstall`     | Remove the launchd agent                                       |
 | `version`       | Print the version                                              |
@@ -171,13 +205,14 @@ Everything lives under `~/.feishutune/`:
 
 - `session` — the Feishu session cookie
 - `sp_dc` — the Spotify cookie for the Spotify ♡ (if set)
+- `netease-auth.json` — NetEase Open Platform credentials (if set)
 - `config.json` — optional config overrides
 - `state.json` — last signature written and the paused flag
 - `spotify-cache.json` — cached Spotify tokens and per-track liked results
 - `agent.log` — stdout and stderr from the scheduled launchd runs (for debugging)
 
-(QQ Music needs no files here — its now-playing comes from `media-control` and
-its ♡ is read directly from the QQ Music app's own library.)
+(NetEase and QQ Music now-playing comes from `media-control`; their local ♡
+fallback is read directly from each app's own cache or library.)
 
 Your cookies are stored as plaintext (not in the macOS Keychain), but the files
 are owner-only — the directory is `0700` and each file is `0600`.
@@ -201,10 +236,16 @@ are owner-only — the directory is `0700` and each file is `0600`.
   `pbpaste | feishutune login`.
 - **No ♡ on Spotify tracks.** The `sp_dc` cookie is missing or expired (~1 year); the
   log notes when to re-auth. Grab a fresh one and `pbpaste | feishutune spotify-login`.
+- **No ♡ on NetEase tracks.** Open the NetEase app while logged in so "我喜欢的音乐"
+  is synced into its local cache. API enhancement is optional and requires
+  `netease-auth`; official API liked status additionally requires a confirmed
+  red-heart playlist path. Matching is strict, so some versions may be missed
+  rather than incorrectly marked.
 - **No ♡ on QQ Music tracks.** Stay logged into the QQ Music app so 我喜欢 syncs to the
   local library. Matching is by song name + artist, so an alternate version can be missed.
-- **QQ Music isn't detected.** Install `media-control` (`brew install media-control`); the
-  agent looks on `/opt/homebrew/bin` (Apple silicon) and `/usr/local/bin` (Intel).
+- **NetEase / QQ Music isn't detected.** Install `media-control` (`brew install
+  media-control`); the agent looks on `/opt/homebrew/bin` (Apple silicon) and
+  `/usr/local/bin` (Intel).
 
 ## Development
 
