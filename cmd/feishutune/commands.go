@@ -12,6 +12,10 @@ import (
 	"github.com/Durden-T/feishutune/internal/config"
 	"github.com/Durden-T/feishutune/internal/feishu"
 	"github.com/Durden-T/feishutune/internal/idle"
+	"github.com/Durden-T/feishutune/internal/netease"
+	"github.com/Durden-T/feishutune/internal/neteaseapi"
+	"github.com/Durden-T/feishutune/internal/neteaseauth"
+	"github.com/Durden-T/feishutune/internal/neteaseliked"
 	"github.com/Durden-T/feishutune/internal/qqmusic"
 	"github.com/Durden-T/feishutune/internal/qqmusicliked"
 	"github.com/Durden-T/feishutune/internal/spotify"
@@ -22,14 +26,16 @@ import (
 // maxSessionBytes caps `login` stdin; a session cookie is well under this.
 const maxSessionBytes = 1 << 16
 
-// musicSources returns the now-playing sources tried in order: Spotify first
-// (its liked ♡ needs the track URI that only the AppleScript adapter provides),
-// then QQ Music via MediaRemote. nowPlayingTrack takes the first that is actually
-// playing, so whichever app you're listening to wins.
+// musicSources returns the now-playing sources tried in order: NetEase first,
+// then Spotify, then QQ Music. nowPlayingTrack takes the first source that is
+// actually playing, so this order resolves the rare case where multiple players
+// are simultaneously active.
 func musicSources() []source {
+	neteaseAPI := neteaseapi.New(neteaseauth.Load())
 	return []source{
-		{spotify.New(), spotifyliked.New(spotifyliked.LoadSPDC())},
-		{qqmusic.New(), qqmusicliked.New()},
+		{player: netease.New(), enhancer: neteaseAPI, liker: neteaseliked.New(neteaseliked.WithAPI(neteaseAPI))},
+		{player: spotify.New(), liker: spotifyliked.New(spotifyliked.LoadSPDC())},
+		{player: qqmusic.New(), liker: qqmusicliked.New()},
 	}
 }
 
@@ -183,6 +189,27 @@ func (c cli) spotifyLogin(args []string) error {
 		return err
 	}
 	fmt.Fprintln(c.stdout, "saved Spotify sp_dc cookie")
+	return nil
+}
+
+// neteaseAuth stores optional NetEase Open Platform credentials from stdin,
+// enabling API metadata and liked-status enhancement for NetEase tracks.
+func (c cli) neteaseAuth(args []string) error {
+	if err := c.noArgs("netease-auth", args); err != nil {
+		return err
+	}
+	b, err := io.ReadAll(io.LimitReader(c.stdin, maxSessionBytes))
+	if err != nil {
+		return fmt.Errorf("read stdin: %w", err)
+	}
+	creds, err := neteaseauth.ParseJSON(b)
+	if err != nil {
+		return codedError{2, err}
+	}
+	if err := neteaseauth.Save(creds); err != nil {
+		return err
+	}
+	fmt.Fprintln(c.stdout, "saved NetEase API credentials")
 	return nil
 }
 

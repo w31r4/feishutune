@@ -1,5 +1,6 @@
 // Command feishutune keeps your Feishu personal signature in sync with the song
-// currently playing in a local music app — Spotify or QQ Music, auto-detected.
+// currently playing in a local music app — NetEase Cloud Music, Spotify, or QQ
+// Music, auto-detected.
 // Each run is one shot: `update` computes the signature and writes it to Feishu
 // only when it changed. Scheduling is delegated to launchd (`install`), and a
 // small state file remembers the last signature and whether now-playing is paused.
@@ -82,6 +83,8 @@ func (c cli) run(args []string) error {
 		return c.login(rest)
 	case "spotify-login":
 		return c.spotifyLogin(rest)
+	case "netease-auth":
+		return c.neteaseAuth(rest)
 	case "install":
 		return c.install(rest)
 	case "uninstall":
@@ -96,8 +99,8 @@ func (c cli) run(args []string) error {
 func (c cli) usage() {
 	fmt.Fprint(c.stdout, `feishutune — sync your Feishu signature to your now-playing music (macOS)
 
-Reads whichever is playing: the Spotify app, or the QQ Music app (the latter
-needs `+"`brew install media-control`"+`).
+Reads whichever is playing: the NetEase Cloud Music app, the Spotify app, or
+the QQ Music app (NetEase/QQ Music need `+"`brew install media-control`"+`).
 
 USAGE
   feishutune <command> [flags]
@@ -110,6 +113,7 @@ COMMANDS
   status        Print whether paused and the last signature written
   login         Store the Feishu session cookie, read from stdin
   spotify-login Store the Spotify sp_dc cookie (optional; adds ♡ on liked Spotify tracks)
+  netease-auth  Store NetEase API credentials JSON (optional; improves NetEase ♡/metadata)
   install       Install a launchd agent that runs update on an interval
   uninstall     Remove the launchd agent
   version       Print the version
@@ -117,6 +121,7 @@ COMMANDS
 EXAMPLES
   pbpaste | feishutune login         # save the Feishu session cookie from the clipboard
   pbpaste | feishutune spotify-login # save the Spotify sp_dc cookie (enables ♡ on liked tracks)
+  pbpaste | feishutune netease-auth  # save NetEase API credentials JSON
   feishutune install --interval 30s  # run update every 30s via launchd
   feishutune update --online afk      # one sync now, overriding the at-the-Mac status text
   feishutune preview                 # print what the signature looks like right now
@@ -125,7 +130,11 @@ EXAMPLES
 
 Run "feishutune <command> -h" for a command's flags.
 Config precedence: flags > env > ~/.feishutune/config.json > defaults.
-Env: FEISHU_SESSION, SPOTIFY_SP_DC, ONLINE, OFFLINE, WEEKEND, IDLE_AFTER, BLACKLIST.
+Env: FEISHU_SESSION, SPOTIFY_SP_DC, NETEASE_APP_ID, NETEASE_PRIVATE_KEY,
+NETEASE_OAUTH_TOKEN, NETEASE_REFRESH_TOKEN, NETEASE_TOKEN_EXPIRES_AT,
+NETEASE_API_BASE_URL, NETEASE_API_SONG_DETAIL_PATH, NETEASE_API_SEARCH_PATH,
+NETEASE_API_LIKED_PATH,
+ONLINE, OFFLINE, WEEKEND, IDLE_AFTER, BLACKLIST.
 `)
 }
 

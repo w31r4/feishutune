@@ -32,9 +32,10 @@ type Track struct {
 	Position time.Duration
 	Duration time.Duration
 
-	// ID is the Spotify track URI ("spotify:track:<base62>"), filled by the
-	// adapter. It identifies the track for the liked-status lookup and is empty
-	// for ads, local files, or anything that is not a Spotify track.
+	// ID is an optional provider-specific track id, such as
+	// "spotify:track:<base62>" or "netease:track:<digits>", filled by the
+	// adapter. It identifies the track for liked-status lookup and is empty when
+	// no stable id is available.
 	ID string
 	// Liked reports whether this track is in the user's Liked Songs. It is set
 	// by the orchestration (after an out-of-band lookup), not the player adapter;

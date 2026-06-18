@@ -29,7 +29,7 @@ func plistPath(label string) (string, error) {
 // at load, and on each tick, with output appended to logPath. PATH is pinned so
 // the agent's minimal environment can still find osascript and ioreg (/usr/bin,
 // /usr/sbin) and media-control (Homebrew — /opt/homebrew/bin on Apple silicon,
-// /usr/local/bin on Intel — for QQ Music).
+// /usr/local/bin on Intel — for NetEase and QQ Music).
 func renderPlist(label, exe, logPath string, interval time.Duration) string {
 	secs := max(int(interval.Seconds()), 1)
 	return fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>

@@ -10,9 +10,15 @@ import (
 	"github.com/Durden-T/feishutune/internal/store"
 )
 
-// Player reads the current track. Implemented by package spotify.
+// Player reads the current track. Implemented by each music source adapter.
 type Player interface {
 	NowPlaying(context.Context) (bio.Track, error)
+}
+
+// TrackEnhancer optionally enriches a playing track with provider metadata such
+// as a stable id. Failures are warned and ignored by orchestration.
+type TrackEnhancer interface {
+	Enhance(context.Context, bio.Track) (bio.Track, error)
 }
 
 // IdleReader reports how long the Mac has gone without user input. Implemented
@@ -27,9 +33,8 @@ type Publisher interface {
 }
 
 // Liker reports whether a track is in the user's liked/favorite songs.
-// Implemented per player: spotifyliked matches on the track's Spotify URI
-// (disabled, always false, when no cookie is configured); qqmusicliked on its
-// name+artist.
+// Implemented per player: neteaseliked and spotifyliked prefer provider track
+// ids; qqmusicliked matches on name+artist.
 type Liker interface {
 	Liked(ctx context.Context, track bio.Track) (bool, error)
 }
@@ -38,8 +43,9 @@ type Liker interface {
 // so the ♡ uses each player's own favorites. update and previewLine try sources
 // in order and take the first that is actually playing.
 type source struct {
-	player Player
-	liker  Liker
+	player   Player
+	enhancer TrackEnhancer
+	liker    Liker
 }
 
 // updateResult reports the outcome of one update for human and JSON output.
@@ -115,6 +121,13 @@ func nowPlayingTrack(ctx context.Context, sources []source, warnw io.Writer) bio
 			continue
 		}
 		if track.Playing {
+			if s.enhancer != nil {
+				if enhanced, err := s.enhancer.Enhance(ctx, track); err != nil {
+					fmt.Fprintf(warnw, "enhance: %v\n", err)
+				} else {
+					track = enhanced
+				}
+			}
 			track.Liked = likedNow(ctx, s.liker, track, warnw)
 			return track
 		}

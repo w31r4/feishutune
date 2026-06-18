@@ -46,13 +46,22 @@ type fakeLiker struct {
 
 func (f fakeLiker) Liked(context.Context, bio.Track) (bool, error) { return f.liked, f.err }
 
+type fakeEnhancer struct {
+	track bio.Track
+	err   error
+}
+
+func (f fakeEnhancer) Enhance(context.Context, bio.Track) (bio.Track, error) {
+	return f.track, f.err
+}
+
 // noLiked is the disabled liker used by tests that don't exercise the ♡: it
 // reports every track as not liked, like an unconfigured Spotify cookie.
 var noLiked = fakeLiker{}
 
 // srcs wraps a single player+liker as the source list update and previewLine
 // take. Most tests exercise one player, so this keeps their calls readable.
-func srcs(p Player, l Liker) []source { return []source{{p, l}} }
+func srcs(p Player, l Liker) []source { return []source{{player: p, liker: l}} }
 
 // atMac and away are idle readings either side of the default 10m threshold; the
 // zero fakeIdle reports no idle time at all (firmly at the Mac).
@@ -135,6 +144,7 @@ func TestUpdateShowsHeartWhenLiked(t *testing.T) {
 // liker, a non-playing source is skipped, and a player error skips that source
 // rather than aborting the chain.
 func TestNowPlayingTrackPicksFirstPlaying(t *testing.T) {
+	netease := bio.Track{Playing: true, Name: "N-Song", Artist: "N-Art"}
 	spotify := bio.Track{Playing: true, Name: "S-Song", Artist: "S-Art"}
 	qq := bio.Track{Playing: true, Name: "Q-Song", Artist: "Q-Art"}
 
@@ -145,25 +155,31 @@ func TestNowPlayingTrackPicksFirstPlaying(t *testing.T) {
 		wantLiked bool
 	}{
 		{
+			name:      "netease-priority source wins when all are playing",
+			sources:   []source{{player: fakePlayer{track: netease}, liker: fakeLiker{liked: true}}, {player: fakePlayer{track: spotify}, liker: noLiked}, {player: fakePlayer{track: qq}, liker: noLiked}},
+			wantName:  "N-Song",
+			wantLiked: true,
+		},
+		{
 			name:      "first source playing wins, uses its own liker",
-			sources:   []source{{fakePlayer{track: spotify}, fakeLiker{liked: true}}, {fakePlayer{track: qq}, noLiked}},
+			sources:   []source{{player: fakePlayer{track: spotify}, liker: fakeLiker{liked: true}}, {player: fakePlayer{track: qq}, liker: noLiked}},
 			wantName:  "S-Song",
 			wantLiked: true,
 		},
 		{
 			name:      "first not playing falls through to second, with second's liker",
-			sources:   []source{{fakePlayer{}, fakeLiker{liked: true}}, {fakePlayer{track: qq}, fakeLiker{liked: true}}},
+			sources:   []source{{player: fakePlayer{}, liker: fakeLiker{liked: true}}, {player: fakePlayer{track: qq}, liker: fakeLiker{liked: true}}},
 			wantName:  "Q-Song",
 			wantLiked: true,
 		},
 		{
 			name:     "first source errors, falls through to second",
-			sources:  []source{{fakePlayer{err: errors.New("media-control boom")}, noLiked}, {fakePlayer{track: qq}, noLiked}},
+			sources:  []source{{player: fakePlayer{err: errors.New("media-control boom")}, liker: noLiked}, {player: fakePlayer{track: qq}, liker: noLiked}},
 			wantName: "Q-Song",
 		},
 		{
 			name:     "nothing playing anywhere yields the zero track",
-			sources:  []source{{fakePlayer{}, noLiked}, {fakePlayer{}, noLiked}},
+			sources:  []source{{player: fakePlayer{}, liker: noLiked}, {player: fakePlayer{}, liker: noLiked}},
 			wantName: "",
 		},
 	}
@@ -177,6 +193,35 @@ func TestNowPlayingTrackPicksFirstPlaying(t *testing.T) {
 				t.Fatalf("liked = %v, want %v", got.Liked, tt.wantLiked)
 			}
 		})
+	}
+}
+
+func TestNowPlayingTrackEnhancesBeforeLiked(t *testing.T) {
+	track := bio.Track{Playing: true, Name: "Raw", Artist: "Raw Artist"}
+	enhanced := bio.Track{Playing: true, Name: "Standard", Artist: "Std Artist", ID: "netease:track:1"}
+	got := nowPlayingTrack(context.Background(), []source{{
+		player:   fakePlayer{track: track},
+		enhancer: fakeEnhancer{track: enhanced},
+		liker:    fakeLiker{liked: true},
+	}}, io.Discard)
+	if got.Name != "Standard" || got.ID != "netease:track:1" || !got.Liked {
+		t.Fatalf("enhanced track = %+v", got)
+	}
+}
+
+func TestNowPlayingTrackKeepsOriginalWhenEnhanceFails(t *testing.T) {
+	var warn strings.Builder
+	track := bio.Track{Playing: true, Name: "Raw", Artist: "Raw Artist"}
+	got := nowPlayingTrack(context.Background(), []source{{
+		player:   fakePlayer{track: track},
+		enhancer: fakeEnhancer{err: errors.New("api down")},
+		liker:    noLiked,
+	}}, &warn)
+	if got.Name != "Raw" {
+		t.Fatalf("track = %+v, want original", got)
+	}
+	if !strings.Contains(warn.String(), "api down") {
+		t.Fatalf("warn = %q, want enhancer error", warn.String())
 	}
 }
 

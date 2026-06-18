@@ -152,6 +152,7 @@ func TestProgressBar(t *testing.T) {
 		{"start", 0, 100 * time.Second, "●─────────"},
 		{"quarter", 25 * time.Second, 100 * time.Second, "━━●───────"},
 		{"half", 50 * time.Second, 100 * time.Second, "━━━━━●────"},
+		{"preferred style sample", 75 * time.Second, 100 * time.Second, "━━━━━━━●──"},
 		{"end", 100 * time.Second, 100 * time.Second, "━━━━━━━━━●"},
 		{"overrun clamps to end", 130 * time.Second, 100 * time.Second, "━━━━━━━━━●"},
 		{"unknown length clamps to start", 30 * time.Second, 0, "●─────────"},

@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/Durden-T/feishutune/internal/feishu"
+	"github.com/Durden-T/feishutune/internal/neteaseauth"
 	"github.com/Durden-T/feishutune/internal/spotifyliked"
 	"github.com/Durden-T/feishutune/internal/store"
 )
@@ -43,6 +44,29 @@ func TestRunVersion(t *testing.T) {
 	}
 	if strings.TrimSpace(out.String()) != version {
 		t.Fatalf("version printed %q, want %q", out.String(), version)
+	}
+}
+
+func TestMusicSourcesPreferNetease(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("SPOTIFY_SP_DC", "")
+	t.Setenv("NETEASE_APP_ID", "")
+	t.Setenv("NETEASE_PRIVATE_KEY", "")
+	t.Setenv("NETEASE_OAUTH_TOKEN", "")
+	sources := musicSources()
+	if len(sources) != 3 {
+		t.Fatalf("len(musicSources) = %d, want 3", len(sources))
+	}
+	got := []string{
+		fmt.Sprintf("%T", sources[0].player),
+		fmt.Sprintf("%T", sources[1].player),
+		fmt.Sprintf("%T", sources[2].player),
+	}
+	want := []string{"*netease.Client", "*spotify.Client", "*qqmusic.Client"}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("source %d = %s, want %s (all: %v)", i, got[i], want[i], got)
+		}
 	}
 }
 
@@ -136,6 +160,36 @@ func TestSpotifyLoginEmptyStdinIsUsageError(t *testing.T) {
 	c, _, _ := newCLI("")
 	if code, _ := classify(c.run([]string{"spotify-login"})); code != 2 {
 		t.Fatalf("spotify-login with empty stdin exit = %d, want 2", code)
+	}
+}
+
+func TestNeteaseAuthSavesFromStdin(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("NETEASE_APP_ID", "")
+	t.Setenv("NETEASE_PRIVATE_KEY", "")
+	t.Setenv("NETEASE_OAUTH_TOKEN", "")
+	t.Setenv("NETEASE_REFRESH_TOKEN", "")
+	t.Setenv("NETEASE_TOKEN_EXPIRES_AT", "")
+
+	c, out, _ := newCLI(`{"app_id":"app","private_key":"key","access_token":"tok"}`)
+	if err := c.run([]string{"netease-auth"}); err != nil {
+		t.Fatalf("netease-auth: %v", err)
+	}
+	if !strings.Contains(out.String(), "saved") {
+		t.Fatalf("stdout = %q, want a confirmation", out.String())
+	}
+	if got := neteaseauth.Load(); got.AppID != "app" || got.PrivateKey != "key" || got.AccessToken != "tok" {
+		t.Fatalf("saved NetEase auth = %+v", got)
+	}
+}
+
+func TestNeteaseAuthRejectsBadInput(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	for _, in := range []string{"", "{", `{"app_id":"app"}`} {
+		c, _, _ := newCLI(in)
+		if code, _ := classify(c.run([]string{"netease-auth"})); code != 2 {
+			t.Fatalf("netease-auth with %q exit = %d, want 2", in, code)
+		}
 	}
 }
 
